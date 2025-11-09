@@ -32,14 +32,14 @@ var chromiumH2Settings = &cycletls.H2Settings{
 		"exclusive": true,
 	},
 	PriorityFrames: []map[string]interface{}{
-		{
+		/*{
 			"streamID": 0,
 			"priorityParam": map[string]interface{}{
 				"weight":    0,
 				"streamDep": 0,
 				"exclusive": true,
 			},
-		},
+		},*/
 		/*{
 			"streamID": 3,
 			"priorityParam": map[string]interface{}{

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/zstd"
 	utls "github.com/refraction-networking/utls"
 )
 
@@ -47,6 +48,12 @@ func DecompressBody(Body []byte, encoding []string, content []string) (parsedBod
 			return string(unz)
 		} else if encoding[0] == "br" {
 			unz, err := unBrotliData(Body)
+			if err != nil {
+				return string(Body)
+			}
+			return string(unz)
+		} else if encoding[0] == "zstd" {
+			unz, err := unZstdData(Body)
 			if err != nil {
 				return string(Body)
 			}
@@ -94,6 +101,15 @@ func unBrotliData(data []byte) (resData []byte, err error) {
 	return respBody, err
 }
 
+func unZstdData(data []byte) ([]byte, error) {
+	dec, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer dec.Close()
+	return dec.DecodeAll(data, nil)
+}
+
 // StringToSpec creates a ClientHelloSpec based on a JA3 string
 func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 	parsedUserAgent := parseUserAgent(userAgent)
@@ -114,18 +130,129 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 	// parse curves
 	var targetCurves []utls.CurveID
 	if parsedUserAgent == chrome {
-		targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
+		targetCurves = append(
+			targetCurves,
+			utls.CurveID(utls.GREASE_PLACEHOLDER),
+			//utls.X25519MLKEM768,
+		) //append grease for Chrome browsers
+
+		// 13
+		if signatureAlgorithmsExt, ok := extMap["13"]; ok {
+			if supportedVersions, ok := signatureAlgorithmsExt.(*utls.SignatureAlgorithmsExtension); ok {
+				supportedVersions.SupportedSignatureAlgorithms = append(
+					supportedVersions.SupportedSignatureAlgorithms,
+					utls.ECDSAWithP256AndSHA256,
+					utls.PSSWithSHA256,
+					utls.PKCS1WithSHA256,
+					utls.ECDSAWithP384AndSHA384,
+					utls.PSSWithSHA384,
+					utls.PKCS1WithSHA384,
+					utls.PSSWithSHA512,
+					utls.PKCS1WithSHA512,
+					//utls.PKCS1WithSHA1,
+				)
+			}
+		}
+
+		// 27
+		if compressCertExt, ok := extMap["27"]; ok {
+			if supportedVersions, ok := compressCertExt.(*utls.UtlsCompressCertExtension); ok {
+				supportedVersions.Algorithms = append(
+					supportedVersions.Algorithms,
+					utls.CertCompressionBrotli,
+				)
+			}
+		}
+
+		// 43
 		if supportedVersionsExt, ok := extMap["43"]; ok {
 			if supportedVersions, ok := supportedVersionsExt.(*utls.SupportedVersionsExtension); ok {
 				supportedVersions.Versions = append([]uint16{utls.GREASE_PLACEHOLDER}, supportedVersions.Versions...)
 			}
 		}
+		// 51
 		if keyShareExt, ok := extMap["51"]; ok {
 			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
-				keyShare.KeyShares = append([]utls.KeyShare{{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}}}, keyShare.KeyShares...)
+				keyShare.KeyShares = append(
+					keyShare.KeyShares,
+					utls.KeyShare{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
+					utls.KeyShare{Group: utls.X25519MLKEM768, Data: []byte{0}},
+					utls.KeyShare{Group: utls.X25519, Data: []byte{0}},
+				)
+			}
+		}
+	} else if parsedUserAgent == firefox {
+		// 13
+		if signatureAlgorithmsExt, ok := extMap["13"]; ok {
+			if supportedVersions, ok := signatureAlgorithmsExt.(*utls.SignatureAlgorithmsExtension); ok {
+				supportedVersions.SupportedSignatureAlgorithms = append(
+					supportedVersions.SupportedSignatureAlgorithms,
+					utls.ECDSAWithP256AndSHA256,
+					utls.ECDSAWithP384AndSHA384,
+					utls.ECDSAWithP521AndSHA512,
+					utls.PSSWithSHA256,
+					utls.PSSWithSHA384,
+					utls.PSSWithSHA512,
+					utls.PKCS1WithSHA256,
+					utls.PKCS1WithSHA384,
+					utls.PKCS1WithSHA512,
+					utls.ECDSAWithSHA1,
+					utls.PKCS1WithSHA1,
+					//utls.SignatureScheme(0x0806),
+					//utls.SignatureScheme(0x0601),
+				)
+			}
+		}
+		// 27
+		if compressCertExt, ok := extMap["27"]; ok {
+			if supportedVersions, ok := compressCertExt.(*utls.UtlsCompressCertExtension); ok {
+				supportedVersions.Algorithms = append(
+					supportedVersions.Algorithms,
+					utls.CertCompressionZlib,
+					utls.CertCompressionBrotli,
+					utls.CertCompressionZstd,
+				)
+			}
+		}
+		// 51
+		if keyShareExt, ok := extMap["51"]; ok {
+			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
+				keyShare.KeyShares = append(
+					keyShare.KeyShares,
+					utls.KeyShare{Group: utls.X25519MLKEM768, Data: []byte{0}},
+					utls.KeyShare{Group: utls.X25519, Data: []byte{0}},
+					utls.KeyShare{Group: utls.CurveP256},
+				)
 			}
 		}
 	} else {
+		// 13
+		if signatureAlgorithmsExt, ok := extMap["13"]; ok {
+			if supportedVersions, ok := signatureAlgorithmsExt.(*utls.SignatureAlgorithmsExtension); ok {
+				supportedVersions.SupportedSignatureAlgorithms = append(
+					supportedVersions.SupportedSignatureAlgorithms,
+					utls.ECDSAWithP256AndSHA256,
+					utls.PSSWithSHA256,
+					utls.PKCS1WithSHA256,
+					utls.ECDSAWithP384AndSHA384,
+					utls.ECDSAWithP384AndSHA384,
+					utls.PSSWithSHA384,
+					utls.PKCS1WithSHA384,
+					utls.PSSWithSHA512,
+					utls.PKCS1WithSHA1,
+				)
+			}
+		}
+		// 27
+		if compressCertExt, ok := extMap["27"]; ok {
+			if supportedVersions, ok := compressCertExt.(*utls.UtlsCompressCertExtension); ok {
+				supportedVersions.Algorithms = append(
+					supportedVersions.Algorithms,
+					utls.CertCompressionBrotli,
+				)
+			}
+		}
+		// 51
 		if keyShareExt, ok := extMap["51"]; ok {
 			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
 				keyShare.KeyShares = append(keyShare.KeyShares, utls.KeyShare{Group: utls.CurveP256})
@@ -139,10 +266,8 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 			return nil, err
 		}
 		targetCurves = append(targetCurves, utls.CurveID(cid))
-		// if cid != uint64(utls.CurveP521) {
-		// CurveP521 sometimes causes handshake errors
-		// }
 	}
+
 	extMap["10"] = &utls.SupportedCurvesExtension{Curves: targetCurves}
 
 	// parse point formats
@@ -161,12 +286,17 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 	if err != nil {
 		return nil, err
 	}
-	tlsMaxVersion, tlsMinVersion, tlsExtension, err := createTlsVersion(uint16(ver))
+	tlsMaxVersion, tlsMinVersion, tlsExtension, err := createTlsVersion(uint16(ver), parsedUserAgent)
 	extMap["43"] = tlsExtension
 
 	// build extenions list
 	var exts []utls.TLSExtension
 	//Optionally Add Chrome Grease Extension
+	if parsedUserAgent == chrome {
+		exts = append(exts, &utls.UtlsGREASEExtension{
+			Body: []byte{},
+		})
+	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
@@ -174,10 +304,15 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 		}
 		// //Optionally add Chrome Grease Extension
 		// if e == "21" && parsedUserAgent == chrome && !tlsExtensions.UseGREASE {
-		if e == "21" && parsedUserAgent == chrome {
-			exts = append(exts, &utls.UtlsGREASEExtension{})
-		}
 		exts = append(exts, te)
+		/*if parsedUserAgent == chrome {
+			exts = append(exts, &utls.UtlsGREASEExtension{})
+		}*/
+	}
+	if parsedUserAgent == chrome {
+		exts = append(exts, &utls.UtlsGREASEExtension{
+			Body: []byte{},
+		})
 	}
 
 	// build CipherSuites
@@ -205,37 +340,33 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 }
 
 // TLSVersion，Ciphers，Extensions，EllipticCurves，EllipticCurvePointFormats
-func createTlsVersion(ver uint16) (tlsMaxVersion uint16, tlsMinVersion uint16, tlsSuppor utls.TLSExtension, err error) {
+func createTlsVersion(ver uint16, parsedUserAgent string) (tlsMaxVersion uint16, tlsMinVersion uint16, tlsSupport utls.TLSExtension, err error) {
+	// Helper function 根据 UA 是否是 chrome 来构建 Versions 列表
+	buildVersions := func(versions ...uint16) []uint16 {
+		if parsedUserAgent == "chrome" {
+			return append([]uint16{utls.GREASE_PLACEHOLDER}, versions...)
+		}
+		return versions
+	}
+
 	switch ver {
-	case utls.VersionTLS13:
+	case utls.VersionTLS13 - 1:
 		tlsMaxVersion = utls.VersionTLS13
 		tlsMinVersion = utls.VersionTLS12
-		tlsSuppor = &utls.SupportedVersionsExtension{
-			Versions: []uint16{
-				utls.GREASE_PLACEHOLDER,
-				utls.VersionTLS13,
-				utls.VersionTLS12,
-			},
+		tlsSupport = &utls.SupportedVersionsExtension{
+			Versions: buildVersions(utls.VersionTLS13, utls.VersionTLS12),
 		}
-	case utls.VersionTLS12:
+	case utls.VersionTLS12 - 1:
 		tlsMaxVersion = utls.VersionTLS12
 		tlsMinVersion = utls.VersionTLS11
-		tlsSuppor = &utls.SupportedVersionsExtension{
-			Versions: []uint16{
-				utls.GREASE_PLACEHOLDER,
-				utls.VersionTLS12,
-				utls.VersionTLS11,
-			},
+		tlsSupport = &utls.SupportedVersionsExtension{
+			Versions: buildVersions(utls.VersionTLS12, utls.VersionTLS11),
 		}
-	case utls.VersionTLS11:
+	case utls.VersionTLS11 - 1:
 		tlsMaxVersion = utls.VersionTLS11
 		tlsMinVersion = utls.VersionTLS10
-		tlsSuppor = &utls.SupportedVersionsExtension{
-			Versions: []uint16{
-				utls.GREASE_PLACEHOLDER,
-				utls.VersionTLS11,
-				utls.VersionTLS10,
-			},
+		tlsSupport = &utls.SupportedVersionsExtension{
+			Versions: buildVersions(utls.VersionTLS11, utls.VersionTLS10),
 		}
 	default:
 		err = errors.New("ja3Str tls version error")
@@ -252,19 +383,22 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		// "11": &tls.SupportedPointsExtension{...}
 		"13": &utls.SignatureAlgorithmsExtension{
 			SupportedSignatureAlgorithms: []utls.SignatureScheme{
-				utls.ECDSAWithP256AndSHA256,
-				utls.ECDSAWithP384AndSHA384,
-				utls.ECDSAWithP521AndSHA512,
-				utls.PSSWithSHA256,
-				utls.PSSWithSHA384,
-				utls.PSSWithSHA512,
-				utls.PKCS1WithSHA256,
-				utls.PKCS1WithSHA384,
+				//utls.ECDSAWithP256AndSHA256,
+				//utls.ECDSAWithP384AndSHA384,
+				//utls.ECDSAWithP521AndSHA512,
+				//utls.PSSWithSHA256,
+				//utls.PSSWithSHA384,
+				//utls.PSSWithSHA512,
+				//utls.PKCS1WithSHA256,
+				//utls.PKCS1WithSHA384,
 				//utls.PKCS1WithSHA512,
 				//utls.ECDSAWithSHA1,
 				//utls.PKCS1WithSHA1,
-				utls.SignatureScheme(0x0806),
-				utls.SignatureScheme(0x0601),
+				//utls.SignatureScheme(0x0806),
+				//utls.SignatureScheme(0x0601),
+
+				//utls.SignatureScheme(0x0203), // ecdsa_sha1
+				//utls.SignatureScheme(0x0201), // rsa_pkcs1_sha1
 			},
 		},
 		"16": &utls.ALPNExtension{
@@ -277,7 +411,7 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"23": &utls.ExtendedMasterSecretExtension{},
 		"24": &utls.FakeTokenBindingExtension{},
 		"27": &utls.UtlsCompressCertExtension{
-			Algorithms: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
+			Algorithms: []utls.CertCompressionAlgo{},
 		},
 		"28": &utls.FakeRecordSizeLimitExtension{
 			Limit: 0x4001,
@@ -291,7 +425,9 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 			},
 		},
 		"35": &utls.SessionTicketExtension{},
-		"41": &utls.UtlsPreSharedKeyExtension{}, //FIXME pre_shared_key
+		"41": &utls.UtlsPreSharedKeyExtension{
+			OmitEmptyPsk: true,
+		}, //FIXME pre_shared_key
 		"43": &utls.SupportedVersionsExtension{Versions: []uint16{
 			utls.VersionTLS13,
 			utls.VersionTLS12,
@@ -303,27 +439,37 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"49": &utls.GenericExtension{Id: 49}, // post_handshake_auth
 		"50": &utls.SignatureAlgorithmsCertExtension{
 			SupportedSignatureAlgorithms: []utls.SignatureScheme{
-				utls.ECDSAWithP256AndSHA256,
-				utls.ECDSAWithP384AndSHA384,
-				utls.ECDSAWithP521AndSHA512,
-				utls.PSSWithSHA256,
-				utls.PSSWithSHA384,
-				utls.PSSWithSHA512,
-				utls.PKCS1WithSHA256,
-				utls.PKCS1WithSHA384,
+				utls.ECDSAWithP256AndSHA256, // ecdsa_secp256r1_sha256
+				utls.ECDSAWithP384AndSHA384, // ecdsa_secp384r1_sha384
+				utls.ECDSAWithP521AndSHA512, // ecdsa_secp521r1_sha512
+				utls.PSSWithSHA256,          // rsa_pss_rsae_sha256
+				utls.PSSWithSHA384,          // rsa_pss_rsae_sha384
+				utls.PSSWithSHA512,          // rsa_pss_rsae_sha512
+				utls.PKCS1WithSHA256,        // rsa_pkcs1_sha256
+				utls.PKCS1WithSHA384,        // rsa_pkcs1_sha384
 				utls.SignatureScheme(0x0806),
 				utls.SignatureScheme(0x0601),
 			},
 		}, // signature_algorithms_cert
 		"51": &utls.KeyShareExtension{KeyShares: []utls.KeyShare{
-			{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
-			{Group: utls.X25519},
+			//{Group: utls.X25519MLKEM768, Data: []byte{0}},
+			// chrome
+			/*{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
+			{Group: utls.X25519},*/
 
+			/*
+				,*/
+			//{Group: utls.CurveP256, Data: []byte{0}},
 			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
 		}},
 		"57":    &utls.QUICTransportParametersExtension{},
 		"13172": &utls.NPNExtension{},
 		"17513": &utls.ApplicationSettingsExtension{
+			SupportedProtocols: []string{
+				"h2",
+			},
+		},
+		"17613": &utls.ApplicationSettingsExtensionNew{
 			SupportedProtocols: []string{
 				"h2",
 			},

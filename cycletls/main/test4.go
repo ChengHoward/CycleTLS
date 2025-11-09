@@ -18,7 +18,7 @@ func main() {
 		},
 		//Proxy: "http://127.0.0.1:1080",
 	}
-	imitate.Chrome142(&options)
+	imitate.Firefox(&options)
 	for s, s2 := range options.Headers {
 		fmt.Println(s, ": ", s2)
 	}
