@@ -3,7 +3,6 @@ package cycletls
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	http "github.com/Wuhan-Dongce/fhttp"
 	"github.com/Wuhan-Dongce/fhttp/http2"
 	"io"
@@ -85,7 +84,6 @@ func processRequest(options *Options) (result *fullRequest) {
 		options.Proxy,
 	)
 
-	println(fmt.Printf("%+v\n", browser.HTTP2Settings.HeaderPriority))
 	if err != nil {
 		log.Fatal(err)
 	}
