@@ -23,70 +23,11 @@ var firefoxH2Settings = &cycletls.H2Settings{
 		"streamDep": 0,
 		"exclusive": false,
 	},
-	PriorityFrames: []map[string]interface{}{
-		/*{
-			"streamID": 0,
-			"priorityParam": map[string]interface{}{
-				"weight":    255,
-				"streamDep": 0,
-				"exclusive": true,
-			},
-		},*/
-		/*{
-			"streamID": 3,
-			"priorityParam": map[string]interface{}{
-				"weight":    0,
-				"streamDep": 0,
-				"exclusive": false,
-			},
-		},
-		{
-			"streamID": 5,
-			"priorityParam": map[string]interface{}{
-				"weight":    101,
-				"streamDep": 0,
-				"exclusive": false,
-			},
-		},
-		{
-			"streamID": 7,
-			"priorityParam": map[string]interface{}{
-				"weight":    1,
-				"streamDep": 0,
-				"exclusive": false,
-			},
-		},
-		{
-			"streamID": 9,
-			"priorityParam": map[string]interface{}{
-				"weight":    1,
-				"streamDep": 7,
-				"exclusive": false,
-			},
-		},
-		{
-			"streamID": 11,
-			"priorityParam": map[string]interface{}{
-				"weight":    1,
-				"streamDep": 3,
-				"exclusive": false,
-			},
-		},
-		{
-			"streamID": 13,
-			"priorityParam": map[string]interface{}{
-				"weight":    241,
-				"streamDep": 0,
-				"exclusive": false,
-			},
-		},*/
-	},
+	PriorityFrames: []map[string]interface{}{},
 }
 var firefoxHttp2Setting = cycletls.ToHTTP2Settings(firefoxH2Settings)
 
 func Firefox(options *cycletls.Options) {
-	//"0-23-65281-10-11-35-16-5-51-43-13-45-28-21"
-	//"0-23-65281-10-11-35-16-5-34-51-43-13-45-28-21"
 	options.Ja3 = "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25-256-257,0"
 	options.HTTP2Settings = firefoxHttp2Setting
 	options.PHeaderOrderKeys = []string{

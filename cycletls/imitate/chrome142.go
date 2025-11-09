@@ -28,16 +28,7 @@ var chrome142H2Settings = &cycletls.H2Settings{
 		"streamDep": 0,
 		"exclusive": true,
 	},
-	PriorityFrames: []map[string]interface{}{
-		/*{
-			"streamID": 0,
-			"priorityParam": map[string]interface{}{
-				"weight":    0,
-				"streamDep": 0,
-				"exclusive": true,
-			},
-		},*/
-	},
+	PriorityFrames: []map[string]interface{}{},
 }
 var chrome142Http2Setting = cycletls.ToHTTP2Settings(chrome142H2Settings)
 
@@ -90,13 +81,12 @@ func Chrome142(options *cycletls.Options) {
 		"sec-fetch-mode",
 		"sec-fetch-user",
 		"sec-fetch-dest",
+		"referer",
 		"accept-encoding",
 		"accept-language",
 		"cookie",
-		"referer",
+		"priority",
 	}
-	//options.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
-	//options.UserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
 	options.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
 
 }
