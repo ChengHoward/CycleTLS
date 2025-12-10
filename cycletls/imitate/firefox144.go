@@ -37,7 +37,6 @@ func Firefox(options *cycletls.Options) {
 		":scheme",
 	}
 
-	//options.Headers["Sec-Ch-Ua"] = `"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"`
 	options.Headers["upgrade-insecure-requests"] = "1"
 	options.Headers["Sec-Fetch-Dest"] = "document"
 	options.Headers["Sec-Fetch-Mode"] = "navigate"
