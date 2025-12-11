@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -490,4 +491,23 @@ func PrettyStruct(data interface{}) (string, error) {
 		return "", err
 	}
 	return string(val), nil
+}
+
+// ConvertUtlsConfig converts utls.Config to tls.Config
+func ConvertUtlsConfig(utlsConfig *utls.Config) *tls.Config {
+	if utlsConfig == nil {
+		return nil
+	}
+
+	return &tls.Config{
+		Rand:               utlsConfig.Rand,
+		Time:               utlsConfig.Time,
+		RootCAs:            utlsConfig.RootCAs,
+		NextProtos:         utlsConfig.NextProtos,
+		ServerName:         utlsConfig.ServerName,
+		InsecureSkipVerify: utlsConfig.InsecureSkipVerify,
+		CipherSuites:       utlsConfig.CipherSuites,
+		MinVersion:         utlsConfig.MinVersion,
+		MaxVersion:         utlsConfig.MaxVersion,
+	}
 }

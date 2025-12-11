@@ -8,6 +8,7 @@ require (
 	github.com/Wuhan-Dongce/fhttp v0.0.0-20251109024753-50fd8b6a2b4f
 	github.com/andybalholm/brotli v1.0.6
 	github.com/gin-gonic/gin v1.11.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.1
 	github.com/refraction-networking/utls v1.8.1
 	golang.org/x/net v0.42.0
